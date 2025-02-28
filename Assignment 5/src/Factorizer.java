@@ -2,15 +2,19 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Factorizer implements Runnable {
 
-	public final BigInteger STEP = BigInteger.TWO;
-	public static BigInteger product = BigInteger.ZERO;
-	public static BigInteger factor1;
-	public static BigInteger factor2;
-	private final BigInteger min;
-	private final BigInteger max;
+	final BigInteger STEP = BigInteger.TWO;
+	final BigInteger min;
+	final BigInteger max;
+	final ReentrantLock flagLock = new ReentrantLock();
+	final ReentrantLock factorsLock = new ReentrantLock();
+	static BigInteger product = BigInteger.ZERO;
+	static BigInteger factor1;
+	static BigInteger factor2;
+	static boolean found = false;
 
 	public Factorizer(BigInteger min, BigInteger max) {
 		this.min = min;
@@ -21,13 +25,25 @@ public class Factorizer implements Runnable {
 	public void run() {
 
 		BigInteger number = min;
-		while (number.compareTo(max) <= 0 && factor1 == null) {
-			synchronized (this) {
-				if (product.remainder(number).compareTo(BigInteger.ZERO) == 0) {
-					factor1 = number;
-					factor2 = product.divide(factor1);
-					return;
+		while (number.compareTo(max) <= 0) {
+			flagLock.lock();
+			try {
+				if (found)
+					break;
+
+				factorsLock.lock();
+				try {
+					if (product.remainder(number).compareTo(BigInteger.ZERO) == 0) {
+						found = true;
+						factor1 = number;
+						factor2 = product.divide(factor1);
+						return;
+					}
+				} finally {
+					factorsLock.unlock();
 				}
+			} finally {
+				flagLock.unlock();
 			}
 			number = number.add(STEP);
 		}
